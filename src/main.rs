@@ -1,22 +1,32 @@
-use std::net::TcpListener;
-// Rust Echo server
+use std::io::{Error, Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::thread;
 
-const SIROCCO_SERVER: &str = "127.0.0.1:8000";
+fn handle_client(mut stream: TcpStream) -> Result<(), Error> {
+    // connects to any open port
+    println!("Incoming connection from: {}", stream.peer_addr()?);
+    let mut buf = [0; 512];
+    loop {
+        let bytes_read = stream.read(&mut buf)?;
+        if bytes_read == 0 {
+            return Ok(());
+        }
+        stream.write(&buf[..bytes_read])?;
+    }
+}
+
 fn main() {
-    // starting
-    println!("sirocco starting {}", SIROCCO_SERVER);
-
-    // listen - create a connection then listen for incoming connections
-    // bind
-    let listener = TcpListener::bind(SIROCCO_SERVER).unwrap();
-
-    // start
-    println!("sirocco listening {}", SIROCCO_SERVER);
-
-    // as each conection comes in, we want to open up that connection and have a little stream for that
+    let listener = TcpListener::bind("0.0.0.0:8888").expect("Could not bind");
     for stream in listener.incoming() {
-        let _stream = stream.unwrap();
-
-        println!("connection established!")
+        match stream {
+            Err(e) => {
+                eprintln!("failed: {}", e)
+            }
+            Ok(stream) => {
+                thread::spawn(move || {
+                    handle_client(stream).unwrap_or_else(|error| eprintln!("{:?}", error));
+                });
+            }
+        }
     }
 }
